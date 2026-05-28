@@ -5,17 +5,17 @@ const logger = require('../services/loggerService');
 const jobStore = new Map();
 
 /**
- * Start a new conversion job
+ * Start a new media conversion job
  */
 const startConversion = async (req, res, next) => {
   try {
-    const { url, format, quality } = req.body;
+    const { streamUrl, format, quality } = req.body;
     const jobId = uuidv4();
 
     // Create job object
     const job = {
       id: jobId,
-      url,
+      streamUrl,
       format,
       quality,
       status: 'pending',
@@ -28,7 +28,7 @@ const startConversion = async (req, res, next) => {
 
     // Store job
     jobStore.set(jobId, job);
-    logger.info(`Conversion job created: ${jobId}`, { url, format, quality });
+    logger.info(`Conversion job created: ${jobId}`, { streamUrl, format, quality });
 
     res.status(202).json({
       jobId,

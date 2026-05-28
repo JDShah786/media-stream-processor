@@ -1,7 +1,7 @@
 {
-  "name": "youtube-to-mp3-converter",
+  "name": "media-stream-converter",
   "version": "1.0.0",
-  "description": "Desktop application to convert YouTube links to MP3 files using Electron",
+  "description": "High-performance desktop application for extracting and converting public media streams to streamline content creation workflows",
   "main": "src/main.js",
   "homepage": "./",
   "author": "JD",

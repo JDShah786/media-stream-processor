@@ -5,8 +5,8 @@ const conversionController = require('../controllers/conversionController');
 
 /**
  * POST /api/convert
- * Start a new conversion job
- * Body: { url, format, quality }
+ * Start a new media stream conversion job
+ * Body: { streamUrl, format, quality, outputPath? }
  */
 router.post('/convert', validator.validateConversionRequest, conversionController.startConversion);
 
@@ -18,7 +18,7 @@ router.get('/status/:jobId', conversionController.getStatus);
 
 /**
  * GET /api/jobs
- * Get list of all jobs
+ * Get list of all active jobs
  */
 router.get('/jobs', conversionController.getJobs);
 

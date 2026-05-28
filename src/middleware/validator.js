@@ -3,20 +3,20 @@
  */
 
 const validateConversionRequest = (req, res, next) => {
-  const { url, format, quality } = req.body;
+  const { streamUrl, format, quality } = req.body;
 
-  // Validate URL
-  if (!url) {
-    const error = new Error('URL is required');
+  // Validate stream URL
+  if (!streamUrl) {
+    const error = new Error('streamUrl is required');
     error.name = 'ValidationError';
     error.statusCode = 400;
     return next(error);
   }
 
-  // Basic YouTube URL validation
-  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
-  if (!youtubeRegex.test(url)) {
-    const error = new Error('Invalid YouTube URL');
+  // Basic URL validation (http/https)
+  const urlRegex = /^(https?:\/\/).+/;
+  if (!urlRegex.test(streamUrl)) {
+    const error = new Error('Invalid stream URL format. Must be http:// or https://');
     error.name = 'ValidationError';
     error.statusCode = 400;
     return next(error);
