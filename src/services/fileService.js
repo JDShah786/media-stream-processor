@@ -76,23 +76,26 @@ class FileService {
   }
 
   /**
-   * List all downloaded files
+   * List all downloaded media files in a directory
+   * @param {string} [dir] - Directory to list; defaults to downloadsDir
    */
-  listDownloads() {
+  listDownloads(dir) {
+    const targetDir = dir || this.downloadsDir;
     try {
-      if (!fs.existsSync(this.downloadsDir)) {
+      if (!fs.existsSync(targetDir)) {
         return [];
       }
 
-      const files = fs.readdirSync(this.downloadsDir);
+      const files = fs.readdirSync(targetDir);
       return files
-        .filter((file) => !file.startsWith('.'))
+        .filter((file) => /\.(mp3|mp4|webm|m4a|opus)$/i.test(file))
         .map((file) => ({
           name: file,
-          path: path.join(this.downloadsDir, file),
-          size: this.getFileSize(path.join(this.downloadsDir, file)),
-          createdAt: fs.statSync(path.join(this.downloadsDir, file)).birthtime,
-        }));
+          path: path.join(targetDir, file),
+          size: this.getFileSize(path.join(targetDir, file)),
+          createdAt: fs.statSync(path.join(targetDir, file)).birthtime,
+        }))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     } catch (error) {
       logger.error('Failed to list downloads', error);
       return [];

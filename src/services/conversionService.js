@@ -1,195 +1,127 @@
-const { exec } = require('child_process');
-const { promisify } = require('util');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const logger = require('./loggerService');
 
-const execAsync = promisify(exec);
+// YTDLP_PATH may be a bare executable ("yt-dlp") or a command with leading
+// args ("py -m yt_dlp"). spawn() treats its first argument as a single
+// executable and won't split on spaces, so parse the command apart from any
+// prefix args here.
+const [YTDLP_CMD, ...YTDLP_PREFIX_ARGS] = (process.env.YTDLP_PATH || 'yt-dlp').trim().split(/\s+/);
 
-/**
- * Conversion Service
- * Orchestrates media extraction and format conversion using yt-dlp and FFmpeg
- */
 class ConversionService {
   /**
-   * Convert a media stream URL to desired format
-   * @param {string} streamUrl - The URL of the media stream
-   * @param {string} format - Target format ('mp3' or 'mp4')
-   * @param {string} quality - Quality level ('low', 'medium', 'high')
-   * @param {string} outputPath - Directory where output file will be saved
-   * @param {Function} onProgress - Callback for progress updates (optional)
-   * @returns {Promise<{outputFile: string, success: boolean}>}
+   * Download and convert a YouTube URL to the requested format.
+   * Uses yt-dlp's built-in extraction — no separate FFmpeg step needed.
    */
   async convert(streamUrl, format, quality, outputPath, onProgress) {
     const jobId = `job_${Date.now()}`;
-    let tempFile = null;
-    let finalFile = null;
+    const baseName = this._baseName();
+    // Use %(ext)s so yt-dlp writes the correct extension itself
+    const outputTemplate = path.join(outputPath, `${baseName}.%(ext)s`);
+    const expectedFile  = path.join(outputPath, `${baseName}.${format}`);
+
+    logger.info(`[${jobId}] Starting`, { streamUrl, format, quality, outputPath });
 
     try {
-      logger.info(`[${jobId}] Starting conversion`, {
-        streamUrl,
-        format,
-        quality,
-        outputPath,
-      });
+      const args = this._buildArgs(streamUrl, format, quality, outputTemplate);
+      await this._run(args, jobId, onProgress);
 
-      // Step 1: Extract media stream using yt-dlp
-      tempFile = path.join(outputPath, `.temp_${jobId}_download`);
-      await this._extractStream(streamUrl, tempFile, jobId, onProgress);
+      // yt-dlp should have created the file; verify it exists
+      if (!fs.existsSync(expectedFile)) {
+        // Fallback: find any file matching the base name in case ext differed
+        const match = fs.readdirSync(outputPath).find(f => f.startsWith(baseName));
+        if (!match) throw new Error('Output file not found after conversion');
+        return { outputFile: path.join(outputPath, match), filename: match, success: true };
+      }
 
-      if (onProgress) onProgress(50);
+      logger.info(`[${jobId}] Done → ${expectedFile}`);
+      return { outputFile: expectedFile, filename: path.basename(expectedFile), success: true };
 
-      // Step 2: Convert to target format using FFmpeg
-      const filename = this._generateFileName(streamUrl, format);
-      finalFile = path.join(outputPath, filename);
-      await this._convertWithFFmpeg(tempFile, finalFile, format, quality, jobId, onProgress);
-
-      if (onProgress) onProgress(100);
-
-      logger.info(`[${jobId}] Conversion completed successfully`, { finalFile });
-
-      return {
-        outputFile: finalFile,
-        filename: filename,
-        success: true,
-      };
     } catch (error) {
-      logger.error(`[${jobId}] Conversion failed`, error);
-
-      // Cleanup on error
-      if (tempFile && fs.existsSync(tempFile)) {
-        try {
-          fs.unlinkSync(tempFile);
-          logger.info(`[${jobId}] Cleaned up temp file: ${tempFile}`);
-        } catch (cleanupError) {
-          logger.warn(`[${jobId}] Failed to cleanup temp file`, cleanupError);
-        }
-      }
-
-      if (finalFile && fs.existsSync(finalFile)) {
-        try {
-          fs.unlinkSync(finalFile);
-          logger.info(`[${jobId}] Cleaned up partial output file: ${finalFile}`);
-        } catch (cleanupError) {
-          logger.warn(`[${jobId}] Failed to cleanup output file`, cleanupError);
-        }
-      }
-
+      logger.error(`[${jobId}] Failed: ${error.message}`);
+      // Clean up any partial file
+      try {
+        fs.readdirSync(outputPath)
+          .filter(f => f.startsWith(baseName))
+          .forEach(f => fs.unlinkSync(path.join(outputPath, f)));
+      } catch (_) {}
       throw new Error(`Conversion failed: ${error.message}`);
     }
   }
 
-  /**
-   * Extract media stream from URL using yt-dlp
-   * @private
-   */
-  async _extractStream(streamUrl, outputPath, jobId, onProgress) {
+  _buildArgs(streamUrl, format, quality, outputTemplate) {
+    const args = [
+      '--no-playlist',  // only download the single video, not the whole list
+      '--newline',      // one progress line per stdout line (easier to parse)
+    ];
+
+    if (format === 'mp3') {
+      // VBR quality: 0 = best (~320kbps), 5 = medium (~128kbps)
+      const vbr = { low: '5', medium: '2', high: '0' }[quality] ?? '2';
+      args.push('-x', '--audio-format', 'mp3', '--audio-quality', vbr);
+    } else {
+      // MP4: pick resolution tier. Prefer AAC (m4a) audio over YouTube's
+      // "best" audio, which is Opus/WebM — Opus muxed into an MP4 container
+      // plays on few players. Preferring m4a keeps the merge a lossless
+      // stream-copy into MP4. Falls back to the old selector if unavailable.
+      const fmt = {
+        low:    'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]/best',
+        medium: 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+        high:   'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+      }[quality] ?? 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best';
+      args.push('-f', fmt, '--merge-output-format', 'mp4');
+    }
+
+    args.push('-o', outputTemplate, '--', streamUrl);
+    return args;
+  }
+
+  _run(args, jobId, onProgress) {
     return new Promise((resolve, reject) => {
-      // yt-dlp command: extract best audio format
-      const command = `yt-dlp -f "best" -o "${outputPath}" "${streamUrl}"`;
+      const fullArgs = [...YTDLP_PREFIX_ARGS, ...args];
+      logger.info(`[${jobId}] ${YTDLP_CMD} ${fullArgs.join(' ')}`);
 
-      logger.info(`[${jobId}] Running yt-dlp extraction`, { command });
+      const proc = spawn(YTDLP_CMD, fullArgs, { windowsHide: true });
 
-      const process = exec(command, (error, stdout, stderr) => {
-        if (error) {
-          logger.error(`[${jobId}] yt-dlp extraction failed`, {
-            error: error.message,
-            stderr,
-          });
-          return reject(new Error(`Stream extraction failed: ${error.message}`));
+      const handleLine = (line) => {
+        line = line.trim();
+        if (!line) return;
+        logger.debug(`[${jobId}] ${line}`);
+
+        // yt-dlp emits:  [download]  45.3% of 8.23MiB at 1.20MiB/s ETA 00:05
+        const m = line.match(/\[download\]\s+([\d.]+)%/);
+        if (m && onProgress) {
+          // Scale download progress to 0–90 so post-processing has room
+          onProgress(Math.min(90, Math.round(parseFloat(m[1]))));
         }
+      };
 
-        logger.info(`[${jobId}] yt-dlp extraction completed`, { stdout });
-        resolve();
+      let stderr = '';
+      proc.stdout.on('data', d => d.toString().split('\n').forEach(handleLine));
+      proc.stderr.on('data', d => {
+        const chunk = d.toString();
+        stderr += chunk;
+        chunk.split('\n').forEach(handleLine);
       });
 
-      // Parse progress from yt-dlp output
-      if (process.stderr) {
-        process.stderr.on('data', (data) => {
-          const output = data.toString();
-          logger.debug(`[${jobId}] yt-dlp output: ${output}`);
+      proc.on('close', code => {
+        if (code === 0) return resolve();
+        // Surface a useful excerpt from stderr on failure
+        const hint = stderr.split('\n').filter(l => l.includes('ERROR') || l.includes('error')).slice(-3).join(' | ');
+        reject(new Error(`yt-dlp exited ${code}${hint ? ': ' + hint : ''}`));
+      });
 
-          // yt-dlp outputs progress info we could parse here if needed
-          if (onProgress) {
-            // Report progress between 0-50 for extraction phase
-            onProgress(25);
-          }
-        });
-      }
+      proc.on('error', err =>
+        reject(new Error(`yt-dlp could not start (is it installed and on PATH?): ${err.message}`))
+      );
     });
   }
 
-  /**
-   * Convert extracted media to target format using FFmpeg
-   * @private
-   */
-  async _convertWithFFmpeg(inputFile, outputFile, format, quality, jobId, onProgress) {
-    return new Promise((resolve, reject) => {
-      let command;
-
-      if (format === 'mp3') {
-        // MP3 conversion with quality presets
-        const bitrates = {
-          low: '128k',
-          medium: '192k',
-          high: '320k',
-        };
-        const bitrate = bitrates[quality] || bitrates.medium;
-        command = `ffmpeg -i "${inputFile}" -q:a 0 -map a -b:a ${bitrate} "${outputFile}"`;
-      } else if (format === 'mp4') {
-        // MP4 video conversion with quality presets
-        const presets = {
-          low: 'fast',
-          medium: 'medium',
-          high: 'slow',
-        };
-        const preset = presets[quality] || presets.medium;
-        command = `ffmpeg -i "${inputFile}" -c:v libx264 -preset ${preset} -crf 23 -c:a aac "${outputFile}"`;
-      } else {
-        return reject(new Error(`Unsupported format: ${format}`));
-      }
-
-      logger.info(`[${jobId}] Running FFmpeg conversion`, { command, format, quality });
-
-      const process = exec(command, (error, stdout, stderr) => {
-        if (error) {
-          logger.error(`[${jobId}] FFmpeg conversion failed`, {
-            error: error.message,
-            stderr,
-          });
-          return reject(new Error(`Conversion to ${format} failed: ${error.message}`));
-        }
-
-        logger.info(`[${jobId}] FFmpeg conversion completed`);
-        resolve();
-      });
-
-      // Parse FFmpeg progress output
-      if (process.stderr) {
-        process.stderr.on('data', (data) => {
-          const output = data.toString();
-          logger.debug(`[${jobId}] FFmpeg output: ${output.substring(0, 100)}`);
-
-          // FFmpeg outputs "frame=..." which we can use for progress
-          // Progress goes from 50-100 during conversion
-          if (output.includes('frame=') && onProgress) {
-            // Simple progress estimation
-            onProgress(75);
-          }
-        });
-      }
-    });
-  }
-
-  /**
-   * Generate a clean filename from URL title
-   * @private
-   */
-  _generateFileName(streamUrl, format) {
-    // Extract a safe filename from URL or generate from timestamp
-    const timestamp = new Date().toISOString().split('T')[0];
-    const random = Math.random().toString(36).substring(7);
-    return `media_${timestamp}_${random}.${format}`;
+  _baseName() {
+    const date = new Date().toISOString().split('T')[0];
+    const rand = Math.random().toString(36).substring(2, 8);
+    return `media_${date}_${rand}`;
   }
 }
 

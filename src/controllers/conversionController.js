@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
 const logger = require('../services/loggerService');
 const conversionService = require('../services/conversionService');
 const fileService = require('../services/fileService');
@@ -11,7 +12,7 @@ const jobStore = new Map();
  */
 const startConversion = async (req, res, next) => {
   try {
-    const { streamUrl, format, quality } = req.body;
+    const { streamUrl, format, quality, outputPath } = req.body;
     const jobId = uuidv4();
 
     // Create job object
@@ -25,7 +26,7 @@ const startConversion = async (req, res, next) => {
       createdAt: new Date(),
       updatedAt: new Date(),
       error: null,
-      outputPath: null,
+      outputPath: outputPath || null,
     };
 
     // Store job
@@ -101,11 +102,13 @@ const processConversion = async (jobId) => {
   logger.info(`Starting conversion for job: ${jobId}`);
 
   try {
-    // Initialize directories
-    fileService.initializeDirectories();
+    // Use caller-supplied output path, or fall back to default downloads dir
+    const outputPath = job.outputPath || fileService.getDownloadsDirectory();
 
-    // Get the downloads directory
-    const outputPath = fileService.getDownloadsDirectory();
+    // Ensure the directory exists (matters for custom output paths)
+    if (!fs.existsSync(outputPath)) {
+      fs.mkdirSync(outputPath, { recursive: true });
+    }
 
     // Define progress callback to update job state
     const onProgress = (percentage) => {
@@ -141,8 +144,21 @@ const processConversion = async (jobId) => {
   }
 };
 
+/**
+ * List all files in the downloads directory
+ */
+const getFiles = (req, res, next) => {
+  try {
+    const files = fileService.listDownloads(req.query.dir || null);
+    res.status(200).json({ total: files.length, files });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   startConversion,
   getStatus,
   getJobs,
+  getFiles,
 };

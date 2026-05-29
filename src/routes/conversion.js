@@ -4,6 +4,12 @@ const validator = require('../middleware/validator');
 const conversionController = require('../controllers/conversionController');
 
 /**
+ * GET /api/files
+ * List all files in the downloads directory
+ */
+router.get('/files', conversionController.getFiles);
+
+/**
  * POST /api/convert
  * Start a new media stream conversion job
  * Body: { streamUrl, format, quality, outputPath? }

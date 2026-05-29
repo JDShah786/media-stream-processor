@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src http://localhost:3000" />
+  <title>YouTube Converter</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Custom Title Bar -->
+  <div class="titlebar">
+    <div class="titlebar-drag">
+      <span class="app-title">YouTube Converter</span>
+    </div>
+    <div class="titlebar-btns">
+      <button id="btn-minimize" class="wc-btn" title="Minimize">&#8211;</button>
+      <button id="btn-maximize" class="wc-btn" title="Maximize">&#9633;</button>
+      <button id="btn-close" class="wc-btn wc-close" title="Close">&#10005;</button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+
+    <!-- URL Input -->
+    <section class="section">
+      <label class="label" for="url-input">YouTube URL</label>
+      <div class="url-row">
+        <input
+          type="text"
+          id="url-input"
+          class="input"
+          placeholder="Paste YouTube URL here…"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button id="btn-clear" class="btn-ghost" style="display:none">Clear</button>
+      </div>
+      <div class="field-error" id="url-error"></div>
+    </section>
+
+    <!-- Format + Quality -->
+    <section class="section options-row">
+
+      <div class="option-group">
+        <div class="label">Format</div>
+        <div class="format-cards">
+          <div class="format-card active" data-format="mp3">
+            <div class="format-name">MP3</div>
+            <div class="format-sub">Audio only</div>
+          </div>
+          <div class="format-card" data-format="mp4">
+            <div class="format-name">MP4</div>
+            <div class="format-sub">Video + Audio</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="option-group">
+        <div class="label">Quality</div>
+        <div class="quality-list">
+          <label class="quality-opt">
+            <input type="radio" name="quality" value="low" />
+            <span class="radio-dot"></span>
+            <span class="quality-name">Low</span>
+            <span class="quality-hint mp3-hint">128 kbps</span>
+            <span class="quality-hint mp4-hint" hidden>Fast encode</span>
+          </label>
+          <label class="quality-opt">
+            <input type="radio" name="quality" value="medium" checked />
+            <span class="radio-dot"></span>
+            <span class="quality-name">Medium</span>
+            <span class="quality-hint mp3-hint">192 kbps</span>
+            <span class="quality-hint mp4-hint" hidden>Balanced</span>
+          </label>
+          <label class="quality-opt">
+            <input type="radio" name="quality" value="high" />
+            <span class="radio-dot"></span>
+            <span class="quality-name">High</span>
+            <span class="quality-hint mp3-hint">320 kbps</span>
+            <span class="quality-hint mp4-hint" hidden>Best quality</span>
+          </label>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Output Folder -->
+    <section class="section">
+      <div class="label">Output Folder</div>
+      <div class="folder-row">
+        <div class="folder-display" id="folder-display">Loading…</div>
+        <button id="btn-browse" class="btn-ghost">Browse</button>
+      </div>
+    </section>
+
+    <!-- Progress (hidden until converting) -->
+    <section class="section" id="progress-section" hidden>
+      <div class="progress-header">
+        <span id="progress-status">Processing…</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </section>
+
+    <!-- Convert Button -->
+    <section class="section">
+      <button id="btn-convert" class="btn-primary" disabled>
+        Convert to MP3
+      </button>
+    </section>
+
+    <!-- Download History -->
+    <section class="section history-section">
+      <div class="history-header">
+        <span class="label">Recent Downloads</span>
+        <span id="history-count" class="history-count">0 files</span>
+      </div>
+      <div id="history-list" class="history-list">
+        <div class="history-empty">No downloads yet — convert something above.</div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
