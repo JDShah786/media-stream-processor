@@ -1,18 +1,21 @@
 # YouTube to MP3/MP4 Converter - Project Plan
 
-## 🚀 Current Project Status (May 28, 2026)
+## 🚀 Current Project Status (May 29, 2026)
 
-**Completion:** Phases 1-3 Complete (Backend Conversion Working)
-**Current Phase:** Phase 4 - Frontend Development (Next)
-**Timeline:** ~50% complete (backend fully functional, frontend pending)
+**Completion:** Phases 1-4 Complete (Backend + Electron Frontend Working)
+**Current Phase:** Phase 5 - Testing & Bug Fixes (In Progress)
+**Timeline:** ~70% complete (end-to-end app functional; automated tests & packaging pending)
 
 **What Works Now:**
 - ✅ Real YouTube URL conversion to MP3/MP4
 - ✅ yt-dlp stream extraction (2 seconds)
-- ✅ FFmpeg conversion with quality presets (2 seconds)
+- ✅ Quality presets; MP4 prefers AAC audio for universal playback
 - ✅ Full API endpoints with job tracking
 - ✅ Real-time progress updates
 - ✅ Automatic cleanup and error recovery
+- ✅ Electron desktop UI (frameless window, URL input, format/quality, progress, history)
+- ✅ Output-folder selection (defaults to D:\) with persisted user choice
+- ✅ Custom output file naming with sanitization & collision handling
 
 **Test Results:** Successfully converted 2x Rick Astley "Never Gonna Give You Up" to MP3 (6.4 MB each, ~4 seconds total)
 
@@ -175,17 +178,19 @@ youtube-converter/
 - [x] Implement request validation
 - [x] Add comprehensive error handling
 
-### Phase 4: Frontend Development (Days 8-10)
-- [ ] Build React components
+### Phase 4: Frontend Development (Days 8-10) ✅ COMPLETE
+> Built with vanilla HTML/CSS/JS in an Electron renderer (not React) — simpler for the scope.
+- [x] Build UI components
   - URL input with validation
   - Format & quality selector
   - Progress indicator
   - Download history/queue
-- [ ] Connect to backend API
-- [ ] Add success/error notifications
-- [ ] Style with CSS (Bootstrap or Tailwind CSS)
+  - Custom output file naming (added)
+- [x] Connect to backend API
+- [x] Add success/error notifications
+- [x] Style with CSS (custom dark theme)
 
-### Phase 5: Testing & Bug Fixes (Days 11-13)
+### Phase 5: Testing & Bug Fixes (Days 11-13) — IN PROGRESS
 - [ ] Unit tests for services
 - [ ] Integration tests for API
 - [ ] Manual testing with various YouTube links
@@ -202,7 +207,15 @@ youtube-converter/
 
 ## 📋 Detailed Phase Breakdown & Remaining Work
 
-### Phase 4: Frontend Development (NEXT - High Priority)
+### Phase 4: Frontend Development ✅ COMPLETE
+
+> **Status:** Done. Implemented as a vanilla HTML/CSS/JS Electron renderer in
+> `src/main.js`, `src/preload.js`, and `src/ui/` (not React; no `electron/` dir).
+> Delivered: frameless window with custom controls, URL input + validation,
+> format/quality selector, progress bar, output-folder picker (defaults to D:\),
+> custom file naming, conversion history with "show in folder", and toast
+> notifications. **Deferred to later:** cancel button, time-estimate, disk-space
+> display, history delete/redownload, and a light-mode toggle.
 
 **Electron Setup:**
 - [ ] Install electron and electron-builder dependencies
