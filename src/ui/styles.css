@@ -126,6 +126,26 @@ html, body {
 
 .field-error { font-size: 11px; color: var(--error); min-height: 14px; }
 
+/* ── File Name Row ── */
+.label-hint { font-weight: 500; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+
+.name-row { display: flex; gap: 8px; align-items: center; }
+.name-row .input { flex: 1; }
+
+.name-ext {
+  flex-shrink: 0;
+  padding: 0 12px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-sec);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* ── Buttons ── */
 .btn-ghost {
   padding: 0 14px;

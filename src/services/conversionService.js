@@ -14,9 +14,12 @@ class ConversionService {
    * Download and convert a YouTube URL to the requested format.
    * Uses yt-dlp's built-in extraction — no separate FFmpeg step needed.
    */
-  async convert(streamUrl, format, quality, outputPath, onProgress) {
+  async convert(streamUrl, format, quality, outputPath, customName, onProgress) {
     const jobId = `job_${Date.now()}`;
-    const baseName = this._baseName();
+    // Use the caller's chosen name (sanitized) when given, else an auto name.
+    // Dedupe so a custom name never silently overwrites an existing file.
+    const sanitized = this._sanitizeName(customName);
+    const baseName = this._uniqueName(outputPath, sanitized || this._baseName(), format);
     // Use %(ext)s so yt-dlp writes the correct extension itself
     const outputTemplate = path.join(outputPath, `${baseName}.%(ext)s`);
     const expectedFile  = path.join(outputPath, `${baseName}.${format}`);
@@ -122,6 +125,39 @@ class ConversionService {
     const date = new Date().toISOString().split('T')[0];
     const rand = Math.random().toString(36).substring(2, 8);
     return `media_${date}_${rand}`;
+  }
+
+  /**
+   * Turn user-supplied text into a safe base filename (no extension), or null
+   * if nothing usable remains. Strips path separators and characters that are
+   * illegal on Windows, guards against reserved device names, and caps length.
+   */
+  _sanitizeName(name) {
+    if (!name) return null;
+    let n = String(name)
+      .trim()
+      .replace(/\.(mp3|mp4)$/i, '')     // drop an extension the user may have typed
+      .replace(/[\\/:*?"<>|]/g, '')     // characters illegal in Windows filenames
+      .replace(/[\x00-\x1f]/g, '')      // control characters
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/[. ]+$/, '');           // trailing dots/spaces are illegal on Windows
+    // Reserved Windows device names
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(n)) n = '';
+    return n.slice(0, 100) || null;
+  }
+
+  /**
+   * Return a base name whose `.format` file does not yet exist in outputPath,
+   * appending " (1)", " (2)", … on collision so we never overwrite.
+   */
+  _uniqueName(outputPath, baseName, format) {
+    let candidate = baseName;
+    let i = 1;
+    while (fs.existsSync(path.join(outputPath, `${candidate}.${format}`))) {
+      candidate = `${baseName} (${i++})`;
+    }
+    return candidate;
   }
 }
 

@@ -12,7 +12,7 @@ const jobStore = new Map();
  */
 const startConversion = async (req, res, next) => {
   try {
-    const { streamUrl, format, quality, outputPath } = req.body;
+    const { streamUrl, format, quality, outputPath, filename } = req.body;
     const jobId = uuidv4();
 
     // Create job object
@@ -27,6 +27,7 @@ const startConversion = async (req, res, next) => {
       updatedAt: new Date(),
       error: null,
       outputPath: outputPath || null,
+      customName: filename || null,
     };
 
     // Store job
@@ -123,6 +124,7 @@ const processConversion = async (jobId) => {
       job.format,
       job.quality,
       outputPath,
+      job.customName,
       onProgress
     );
 

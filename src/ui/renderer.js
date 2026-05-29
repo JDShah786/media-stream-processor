@@ -10,6 +10,8 @@ let pollInterval   = null;
 const urlInput       = document.getElementById('url-input');
 const urlError       = document.getElementById('url-error');
 const btnClear       = document.getElementById('btn-clear');
+const nameInput      = document.getElementById('name-input');
+const nameExt        = document.getElementById('name-ext');
 const folderDisplay  = document.getElementById('folder-display');
 const progressSec    = document.getElementById('progress-section');
 const progressFill   = document.getElementById('progress-fill');
@@ -33,6 +35,7 @@ async function init() {
   if (!userPicked) localStorage.removeItem('outputFolder');
   outputFolder = (userPicked && localStorage.getItem('outputFolder')) || defaultPath;
   folderDisplay.textContent = outputFolder;
+  updateNameExt();
   loadHistory();
 }
 
@@ -71,9 +74,14 @@ document.querySelectorAll('.format-card').forEach((card) => {
     card.classList.add('active');
     selectedFormat = card.dataset.format;
     updateQualityHints();
+    updateNameExt();
     syncBtn();
   });
 });
+
+function updateNameExt() {
+  nameExt.textContent = `.${selectedFormat}`;
+}
 
 function updateQualityHints() {
   const isMP3 = selectedFormat === 'mp3';
@@ -121,6 +129,7 @@ async function startConversion() {
         format:     selectedFormat,
         quality:    document.querySelector('input[name="quality"]:checked')?.value || 'medium',
         outputPath: outputFolder,
+        filename:   nameInput.value.trim(),
       }),
     });
 
@@ -176,6 +185,7 @@ function onDone(job) {
     setConverting(false);
     hideProgress();
     urlInput.value = '';
+    nameInput.value = '';
     btnClear.style.display = 'none';
     urlInput.classList.remove('invalid');
     syncBtn();
