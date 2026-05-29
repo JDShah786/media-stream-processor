@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src http://localhost:3000" />
-  <title>YouTube Converter</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <title>Converto</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,106 +13,137 @@
   <!-- Custom Title Bar -->
   <div class="titlebar">
     <div class="titlebar-drag">
-      <span class="app-title">YouTube Converter</span>
+      <img class="app-logo" src="assets/icon.png" alt="" />
+      <span class="app-title">Converto</span>
     </div>
     <div class="titlebar-btns">
-      <button id="btn-minimize" class="wc-btn" title="Minimize">&#8211;</button>
-      <button id="btn-maximize" class="wc-btn" title="Maximize">&#9633;</button>
-      <button id="btn-close" class="wc-btn wc-close" title="Close">&#10005;</button>
+      <button id="btn-minimize" class="wc-btn" title="Minimize">_</button>
+      <button id="btn-maximize" class="wc-btn" title="Maximize">[]</button>
+      <button id="btn-close" class="wc-btn wc-close" title="Close">X</button>
     </div>
   </div>
 
   <!-- Main Content -->
   <div class="main">
 
-    <!-- URL Input -->
-    <section class="section">
-      <label class="label" for="url-input">YouTube URL</label>
-      <div class="url-row">
-        <input
-          type="text"
-          id="url-input"
-          class="input"
-          placeholder="Paste YouTube URL here…"
-          spellcheck="false"
-          autocomplete="off"
-        />
-        <button id="btn-clear" class="btn-ghost" style="display:none">Clear</button>
-      </div>
-      <div class="field-error" id="url-error"></div>
-    </section>
+    <!-- Crafting flow: ingredients joined by + connectors, then ⇄ to output -->
+    <div class="flow">
 
-    <!-- File Name (optional) -->
-    <section class="section">
-      <label class="label" for="name-input">File Name <span class="label-hint">— optional</span></label>
-      <div class="name-row">
-        <input
-          type="text"
-          id="name-input"
-          class="input"
-          placeholder="Leave blank for an automatic name"
-          spellcheck="false"
-          autocomplete="off"
-          maxlength="120"
-        />
-        <span class="name-ext" id="name-ext">.mp3</span>
-      </div>
-    </section>
-
-    <!-- Format + Quality -->
-    <section class="section options-row">
-
-      <div class="option-group">
-        <div class="label">Format</div>
-        <div class="format-cards">
-          <div class="format-card active" data-format="mp3">
-            <div class="format-name">MP3</div>
-            <div class="format-sub">Audio only</div>
+      <!-- URL -->
+      <div class="ingredient ing-url">
+        <div class="ing-label">YouTube URL</div>
+        <div class="ing-body">
+          <div class="url-row">
+            <input
+              type="text"
+              id="url-input"
+              class="input"
+              placeholder="Paste a YouTube link…"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <button id="btn-clear" class="btn-ghost" style="display:none">X</button>
           </div>
-          <div class="format-card" data-format="mp4">
-            <div class="format-name">MP4</div>
-            <div class="format-sub">Video + Audio</div>
+          <div class="field-error" id="url-error"></div>
+        </div>
+      </div>
+
+      <div class="connector">+</div>
+
+      <!-- File Name -->
+      <div class="ingredient ing-name">
+        <div class="ing-label">File Name <span class="label-hint">opt</span></div>
+        <div class="ing-body">
+          <div class="name-row">
+            <input
+              type="text"
+              id="name-input"
+              class="input"
+              placeholder="auto"
+              spellcheck="false"
+              autocomplete="off"
+              maxlength="120"
+            />
+            <span class="name-ext" id="name-ext">.mp3</span>
           </div>
         </div>
       </div>
 
-      <div class="option-group">
-        <div class="label">Quality</div>
-        <div class="quality-list">
-          <label class="quality-opt">
-            <input type="radio" name="quality" value="low" />
-            <span class="radio-dot"></span>
-            <span class="quality-name">Low</span>
-            <span class="quality-hint mp3-hint">128 kbps</span>
-            <span class="quality-hint mp4-hint" hidden>Fast encode</span>
-          </label>
-          <label class="quality-opt">
-            <input type="radio" name="quality" value="medium" checked />
-            <span class="radio-dot"></span>
-            <span class="quality-name">Medium</span>
-            <span class="quality-hint mp3-hint">192 kbps</span>
-            <span class="quality-hint mp4-hint" hidden>Balanced</span>
-          </label>
-          <label class="quality-opt">
-            <input type="radio" name="quality" value="high" />
-            <span class="radio-dot"></span>
-            <span class="quality-name">High</span>
-            <span class="quality-hint mp3-hint">320 kbps</span>
-            <span class="quality-hint mp4-hint" hidden>Best quality</span>
-          </label>
+      <div class="connector">+</div>
+
+      <!-- Format -->
+      <div class="ingredient ing-format">
+        <div class="ing-label">Format</div>
+        <div class="ing-body">
+          <div class="format-cards">
+            <div class="format-card active" data-format="mp3">
+              <div class="format-name">MP3</div>
+              <div class="format-sub">Audio</div>
+            </div>
+            <div class="format-card" data-format="mp4">
+              <div class="format-name">MP4</div>
+              <div class="format-sub">Video</div>
+            </div>
+          </div>
         </div>
       </div>
 
-    </section>
+      <div class="connector">+</div>
 
-    <!-- Output Folder -->
-    <section class="section">
-      <div class="label">Output Folder</div>
-      <div class="folder-row">
-        <div class="folder-display" id="folder-display">Loading…</div>
-        <button id="btn-browse" class="btn-ghost">Browse</button>
+      <!-- Quality -->
+      <div class="ingredient ing-quality">
+        <div class="ing-label">Quality</div>
+        <div class="ing-body">
+          <div class="quality-list">
+            <label class="quality-opt">
+              <input type="radio" name="quality" value="low" />
+              <span class="radio-dot"></span>
+              <span class="quality-name">Low</span>
+              <span class="quality-hint mp3-hint">128 kbps</span>
+              <span class="quality-hint mp4-hint" hidden>Fast</span>
+            </label>
+            <label class="quality-opt">
+              <input type="radio" name="quality" value="medium" checked />
+              <span class="radio-dot"></span>
+              <span class="quality-name">Medium</span>
+              <span class="quality-hint mp3-hint">192 kbps</span>
+              <span class="quality-hint mp4-hint" hidden>Balanced</span>
+            </label>
+            <label class="quality-opt">
+              <input type="radio" name="quality" value="high" />
+              <span class="radio-dot"></span>
+              <span class="quality-name">High</span>
+              <span class="quality-hint mp3-hint">320 kbps</span>
+              <span class="quality-hint mp4-hint" hidden>Best</span>
+            </label>
+          </div>
+        </div>
       </div>
-    </section>
+
+      <!-- Conversion arrows -->
+      <div class="connector arrows" title="convert">
+        <svg viewBox="0 0 24 24" class="arrows-ico" aria-hidden="true">
+          <g fill="#e63946" shape-rendering="crispEdges">
+            <rect x="3" y="7" width="13" height="2"/>
+            <polygon points="15,5 21,8 15,11"/>
+            <rect x="8" y="15" width="13" height="2"/>
+            <polygon points="9,13 3,16 9,19"/>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Output Folder -->
+      <div class="ingredient ing-output">
+        <div class="ing-label">Output Folder</div>
+        <div class="ing-body">
+          <div class="folder-row">
+            <div class="folder-display" id="folder-display">Loading…</div>
+            <button id="btn-browse" class="btn-ghost">Browse</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
 
     <!-- Progress (hidden until converting) -->
     <section class="section" id="progress-section" hidden>
@@ -125,11 +157,9 @@
     </section>
 
     <!-- Convert Button -->
-    <section class="section">
-      <button id="btn-convert" class="btn-primary" disabled>
-        Convert to MP3
-      </button>
-    </section>
+    <button id="btn-convert" class="btn-primary" disabled>
+      Convert to MP3
+    </button>
 
     <!-- Download History -->
     <section class="section history-section">
@@ -138,7 +168,7 @@
         <span id="history-count" class="history-count">0 files</span>
       </div>
       <div id="history-list" class="history-list">
-        <div class="history-empty">No downloads yet — convert something above.</div>
+        <div class="history-empty">No downloads yet — convert something above!</div>
       </div>
     </section>
 

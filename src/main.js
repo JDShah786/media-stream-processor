@@ -7,12 +7,13 @@ let httpServer;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 860,
-    height: 720,
-    minWidth: 720,
-    minHeight: 580,
+    width: 880,
+    height: 740,
+    minWidth: 560,
+    minHeight: 560,
     frame: false,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#1a1c2e',
+    icon: path.join(__dirname, 'ui', 'assets', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
