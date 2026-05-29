@@ -1,5 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../services/loggerService');
+const conversionService = require('../services/conversionService');
+const fileService = require('../services/fileService');
 
 // In-memory job store (will be replaced with database in production)
 const jobStore = new Map();
@@ -88,8 +90,7 @@ const getJobs = (req, res, next) => {
 };
 
 /**
- * Simulate async conversion processing
- * This will be replaced with actual conversion logic in Phase 2
+ * Process actual media stream conversion using yt-dlp and FFmpeg
  */
 const processConversion = async (jobId) => {
   const job = jobStore.get(jobId);
@@ -99,18 +100,45 @@ const processConversion = async (jobId) => {
   job.updatedAt = new Date();
   logger.info(`Starting conversion for job: ${jobId}`);
 
-  // Simulate processing steps
-  for (let i = 0; i <= 100; i += 10) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    job.progress = i;
-    job.updatedAt = new Date();
-  }
+  try {
+    // Initialize directories
+    fileService.initializeDirectories();
 
-  job.status = 'completed';
-  job.progress = 100;
-  job.outputPath = `/downloads/${job.id}.${job.format}`;
-  job.updatedAt = new Date();
-  logger.info(`Conversion completed for job: ${jobId}`);
+    // Get the downloads directory
+    const outputPath = fileService.getDownloadsDirectory();
+
+    // Define progress callback to update job state
+    const onProgress = (percentage) => {
+      job.progress = Math.min(percentage, 99); // Cap at 99 until complete
+      job.updatedAt = new Date();
+      logger.debug(`Job ${jobId} progress: ${job.progress}%`);
+    };
+
+    // Execute the actual conversion
+    const result = await conversionService.convert(
+      job.streamUrl,
+      job.format,
+      job.quality,
+      outputPath,
+      onProgress
+    );
+
+    // Update job with success
+    job.status = 'completed';
+    job.progress = 100;
+    job.outputPath = result.outputFile;
+    job.filename = result.filename;
+    job.updatedAt = new Date();
+    logger.info(`Conversion completed for job: ${jobId}`, {
+      outputFile: result.outputFile,
+    });
+  } catch (error) {
+    // Update job with error
+    job.status = 'failed';
+    job.error = error.message;
+    job.updatedAt = new Date();
+    logger.error(`Conversion failed for job: ${jobId}`, error);
+  }
 };
 
 module.exports = {
