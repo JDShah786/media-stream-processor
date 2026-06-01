@@ -95,6 +95,9 @@ async function runSetupWindow(bootstrap) {
           if (!win.isDestroyed()) win.webContents.send('setup:update', data);
         };
 
+        // FFmpeg is bundled via ffmpeg-static — mark it done immediately.
+        send({ dep: 'ffmpeg', phase: 'done', pct: 100 });
+
         // ── yt-dlp ──────────────────────────────────────────────────────
         if (!fs.existsSync(bootstrap.YTDLP_EXE)) {
           await bootstrap.downloadFile(bootstrap.YTDLP_URL, bootstrap.YTDLP_EXE, (pct) => {
@@ -102,22 +105,6 @@ async function runSetupWindow(bootstrap) {
           });
         }
         send({ dep: 'ytdlp', phase: 'done', pct: 100 });
-
-        // ── FFmpeg ───────────────────────────────────────────────────────
-        if (!fs.existsSync(bootstrap.FFMPEG_EXE)) {
-          send({ dep: 'ffmpeg', phase: 'resolving', pct: 0 });
-          const zipUrl = await bootstrap.getFFmpegZipUrl();
-
-          const tmpZip = path.join(bootstrap.BIN_DIR, '_ffmpeg.zip');
-          await bootstrap.downloadFile(zipUrl, tmpZip, (pct) => {
-            send({ dep: 'ffmpeg', phase: 'downloading', pct });
-          });
-
-          send({ dep: 'ffmpeg', phase: 'extracting', pct: 98 });
-          bootstrap.extractFfmpegFromZip(tmpZip);
-          fs.unlinkSync(tmpZip);
-        }
-        send({ dep: 'ffmpeg', phase: 'done', pct: 100 });
 
         bootstrap.applyPaths();
 

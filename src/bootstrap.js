@@ -6,61 +6,69 @@ const fs      = require('fs');
 const https   = require('https');
 const http    = require('http');
 
+// yt-dlp is downloaded on first run because it updates frequently and is small.
+// FFmpeg is bundled via the ffmpeg-static npm package (included in the installer
+// via asarUnpack) — no network download needed for it.
+
 const BIN_DIR   = path.join(app.getPath('userData'), 'bin');
 const YTDLP_EXE = path.join(BIN_DIR, 'yt-dlp.exe');
-const FFMPEG_EXE = path.join(BIN_DIR, 'ffmpeg.exe');
 
-const YTDLP_URL       = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
-const FFMPEG_API_URL  = 'https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/latest';
-const FFMPEG_ZIP_RE   = /ffmpeg-master-latest-win64-gpl-essentials\.zip$/;
-// Entry path inside the zip is like: ffmpeg-master-latest-win64-gpl-essentials/bin/ffmpeg.exe
-const FFMPEG_ENTRY_RE = /\/bin\/ffmpeg\.exe$/;
+const YTDLP_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
 
 /**
- * Returns true if the managed binaries are missing AND the user has not
- * configured their own tools in .env.
- *
- * "User-configured" means the env var differs from its bare default name
- * (e.g. "py -m yt_dlp", a full path, or any custom string).  This lets
- * developers who already have the tools keep using them without triggering
- * a 75 MB first-run download.
+ * Resolve the path to the bundled ffmpeg.exe from the ffmpeg-static package.
+ * In a packaged Electron app, node_modules lives inside app.asar (a virtual
+ * archive). Files listed under asarUnpack are extracted to app.asar.unpacked,
+ * so we rewrite the path accordingly when running packaged.
+ */
+function getFfmpegPath() {
+  const staticPath = require('ffmpeg-static');
+  if (app.isPackaged) {
+    return staticPath.replace('app.asar', 'app.asar.unpacked');
+  }
+  return staticPath;
+}
+
+/**
+ * Returns true if yt-dlp is not yet available and the user hasn't configured
+ * their own tool via .env. FFmpeg is always available (bundled).
  */
 function needsSetup() {
-  const hasManagedYt = fs.existsSync(YTDLP_EXE);
-  const hasManagedFf = fs.existsSync(FFMPEG_EXE);
-  if (hasManagedYt && hasManagedFf) return false;
+  // Managed binary already present — nothing to do
+  if (fs.existsSync(YTDLP_EXE)) return false;
 
-  const yt = (process.env.YTDLP_PATH  || '').trim();
-  const ff = (process.env.FFMPEG_PATH || '').trim();
-
-  // Anything that isn't the bare default is treated as a user-provided command.
+  // Honour explicit .env overrides: anything that isn't the bare default
+  // (e.g. "py -m yt_dlp", a full path) is treated as user-provided.
+  const yt = (process.env.YTDLP_PATH || '').trim();
   const isCustom = (s, def) => s.length > 0 && s !== def;
-
-  const ytOk = hasManagedYt || isCustom(yt, 'yt-dlp');
-  const ffOk = hasManagedFf || isCustom(ff, 'ffmpeg');
-  return !(ytOk && ffOk);
+  return !isCustom(yt, 'yt-dlp');
 }
 
 /**
- * Point the process env vars at the managed binaries (if they exist).
- * Called immediately after setup completes, and on every subsequent launch.
+ * Point YTDLP_PATH at the managed binary and FFMPEG_PATH at the bundled
+ * ffmpeg-static binary. Called after setup and on every subsequent launch.
  */
 function applyPaths() {
-  if (fs.existsSync(YTDLP_EXE))  process.env.YTDLP_PATH  = YTDLP_EXE;
-  if (fs.existsSync(FFMPEG_EXE)) process.env.FFMPEG_PATH = FFMPEG_EXE;
+  if (fs.existsSync(YTDLP_EXE)) process.env.YTDLP_PATH = YTDLP_EXE;
+
+  const ffPath = getFfmpegPath();
+  if (ffPath && fs.existsSync(ffPath)) process.env.FFMPEG_PATH = ffPath;
 }
 
 /**
- * Stream-download `url` to `destPath`, following redirects.
+ * Stream-download `url` to `destPath`, following redirects correctly.
  * `onProgress(pct)` is called with 0-100 as bytes arrive.
  */
 function downloadFile(url, destPath, onProgress) {
   return new Promise((resolve, reject) => {
     const doRequest = (urlStr) => {
       const mod = urlStr.startsWith('https://') ? https : http;
-      const req = mod.get(urlStr, { headers: { 'User-Agent': 'Converto/1.0.1' } }, (res) => {
+      mod.get(urlStr, { headers: { 'User-Agent': 'Converto/1.0.1' } }, (res) => {
         if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
-          req.destroy();
+          // Drain the redirect response body so the socket is cleanly released,
+          // then follow the new location. Do NOT call req.destroy() here — that
+          // fires an 'error' event which would reject the Promise prematurely.
+          res.resume();
           return doRequest(res.headers.location);
         }
         if (res.statusCode !== 200) {
@@ -79,55 +87,18 @@ function downloadFile(url, destPath, onProgress) {
         res.pipe(out);
         out.on('finish', () => { out.close(); resolve(); });
         out.on('error',  (e) => { fs.unlink(destPath, () => {}); reject(e); });
-      });
-      req.on('error', (e) => { fs.unlink(destPath, () => {}); reject(e); });
+      }).on('error', (e) => { fs.unlink(destPath, () => {}); reject(e); });
     };
     doRequest(url);
   });
 }
 
-/**
- * Ask the GitHub Releases API for the browser_download_url of the
- * ffmpeg-master-latest-win64-gpl-essentials.zip asset.
- */
-function getFFmpegZipUrl() {
-  return new Promise((resolve, reject) => {
-    https.get(FFMPEG_API_URL, { headers: { 'User-Agent': 'Converto/1.0.1' } }, (res) => {
-      let body = '';
-      res.on('data', (d) => { body += d; });
-      res.on('end', () => {
-        try {
-          const json   = JSON.parse(body);
-          const asset  = (json.assets || []).find(a => FFMPEG_ZIP_RE.test(a.name));
-          if (!asset) throw new Error('FFmpeg essentials asset not found in latest release');
-          resolve(asset.browser_download_url);
-        } catch (e) { reject(e); }
-      });
-      res.on('error', reject);
-    }).on('error', reject);
-  });
-}
-
-/**
- * Extract ffmpeg.exe from the downloaded zip and write it to FFMPEG_EXE.
- * Uses adm-zip (pure-JS, no native module needed).
- */
-function extractFfmpegFromZip(zipPath) {
-  const AdmZip = require('adm-zip');
-  const zip   = new AdmZip(zipPath);
-  const entry = zip.getEntries().find(e => FFMPEG_ENTRY_RE.test(e.entryName));
-  if (!entry) throw new Error('ffmpeg.exe not found inside the downloaded archive');
-  fs.writeFileSync(FFMPEG_EXE, entry.getData());
-}
-
 module.exports = {
   BIN_DIR,
   YTDLP_EXE,
-  FFMPEG_EXE,
   YTDLP_URL,
+  getFfmpegPath,
   needsSetup,
   applyPaths,
   downloadFile,
-  getFFmpegZipUrl,
-  extractFfmpegFromZip,
 };
