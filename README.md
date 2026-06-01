@@ -144,36 +144,35 @@ API Response
 ```
 media-stream-converter/
 ├── src/
+│   ├── main.js                      # Electron main process (window, IPC, backend boot)
+│   ├── preload.js                   # Secure context-bridge to the renderer
+│   ├── app.js                       # Express app setup
+│   ├── server.js                    # Standalone server entry point (dev/testing)
 │   ├── services/
-│   │   ├── extractionService.js     # Media stream extraction
-│   │   ├── conversionService.js     # Codec conversion pipeline
-│   │   ├── fileService.js           # Disk I/O & cleanup
-│   │   └── loggerService.js         # Structured logging
+│   │   ├── conversionService.js     # yt-dlp orchestration + output naming
+│   │   ├── fileService.js           # Disk I/O, listing & cleanup
+│   │   └── loggerService.js         # Structured Winston logging
 │   ├── controllers/
-│   │   └── mediaController.js       # API orchestration
+│   │   └── conversionController.js  # API orchestration + in-memory job store
 │   ├── routes/
-│   │   └── media.js                 # REST endpoints
+│   │   └── conversion.js            # REST endpoints
 │   ├── middleware/
 │   │   ├── errorHandler.js          # Global error catching
 │   │   └── validator.js             # Input validation
-│   ├── config/
-│   │   └── config.js                # Environment config
-│   ├── app.js                       # Express app setup
-│   └── server.js                    # Server entry point
-├── electron/
-│   ├── main.js                      # Electron main process
-│   ├── preload.js                   # Secure IPC bridge
-│   └── ui/                          # React components
+│   └── ui/                          # Renderer: index.html, renderer.js, styles.css,
+│                                    #   fonts/, assets/ (icon, decor sprites, village)
+├── scripts/
+│   ├── build_assets.py              # Repacks Tiny Swords art → flat sprites + village.png
+│   └── make_icon.py                 # Generates the app icon
 ├── tests/
-│   ├── unit/                        # Service tests
-│   ├── integration/                 # API tests
-│   └── fixtures/                    # Test data
-├── logs/                            # Runtime logs
-├── temp/                            # Temporary files
-├── downloads/                       # Output files
-├── .env                             # Local config
+│   ├── unit/                        # validator, conversionService, fileService
+│   └── integration/                 # API endpoint tests (supertest)
+├── logs/                            # Runtime logs (gitignored)
+├── downloads/                       # Default output files
+├── .env                             # Local config (gitignored)
 ├── .env.example                     # Config template
-├── package.json                     # Dependencies
+├── jest.config.js                   # Test runner config
+├── package.json                     # Dependencies + electron-builder config
 └── PROJECT_PLAN.md                  # Detailed specs
 ```
 
@@ -200,10 +199,15 @@ This is a **technical tool for professionals** building custom media workflows, 
 
 ## Installation
 
+**Prerequisites** (must be available on the host machine):
+- **Node.js** v18+ — runtime for the app and backend
+- **Python** 3.9+ with **yt-dlp** — the stream extraction engine (`pip install -U yt-dlp`)
+- **FFmpeg** — required by yt-dlp to merge/transcode streams (audio extraction & MP4 muxing)
+
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/media-stream-converter.git
-   cd media-stream-converter
+   git clone https://github.com/JDShah786/media-stream-processor.git
+   cd media-stream-processor
    ```
 
 2. **Install Node.js dependencies**
@@ -215,13 +219,21 @@ This is a **technical tool for professionals** building custom media workflows, 
    ```bash
    cp .env.example .env
    ```
-   Configure extraction command in `.env` (e.g., path to stream extraction tool)
+   The key setting is `YTDLP_PATH` — the command used to invoke the extraction
+   tool. Use a bare executable (`yt-dlp`) if it's on your PATH, or a command with
+   leading args such as `py -m yt_dlp` (Windows) / `python3 -m yt_dlp`. The code
+   splits the command from its prefix args before spawning, so both forms work.
 
 4. **Verify dependencies**
    ```bash
    node --version
-   npm --version
+   py -m yt_dlp --version   # or: yt-dlp --version
    ffmpeg -version
+   ```
+
+5. **Launch the desktop app**
+   ```bash
+   npm start          # or: npm run dev  (opens DevTools)
    ```
 
 ## Configuration
@@ -369,28 +381,22 @@ Error codes:
 
 ## Testing & Quality
 
-### Unit Tests
+Run the full Jest suite (unit + integration):
 ```bash
 npm test
 ```
 
-Tests cover:
-- Service isolation (mocked dependencies)
-- Error handling paths
-- Input validation rules
-- Stream backpressure logic
-- File cleanup on failure
+**Unit tests** (`tests/unit/`) cover:
+- Input validation rules (URL/format/quality, playlist-only rejection)
+- Filename sanitization & collision-safe naming
+- yt-dlp argument construction (MP3 VBR tiers, MP4 resolution tiers + AAC preference)
+- File service listing, sizing, and deletion
 
-### Integration Tests
-```bash
-npm run test:integration
-```
-
-Tests cover:
-- Full API request/response cycle
-- Real file processing
-- Error state recovery
-- Concurrent job handling
+**Integration tests** (`tests/integration/`) cover the API contract with the
+extraction step stubbed (no real downloads):
+- `POST /api/convert` — 202 acceptance + 400 validation paths
+- `GET /api/status/:jobId` — found vs. 404
+- `GET /api/jobs`, `GET /api/files`, `/health`, and unknown-route 404s
 
 ## Deployment
 
@@ -399,21 +405,24 @@ Tests cover:
 npm run dev      # With nodemon auto-restart
 ```
 
-### Production
+### Packaging the Desktop App
+
+The app is packaged with **electron-builder** (configured under the `build` key
+in `package.json`). To produce a Windows installer:
+
 ```bash
-npm run build    # Bundle and optimize
-npm start        # Run production build
+npm run build      # runs electron-builder → release/
 ```
 
-### Environment Variables for Production
-```bash
-NODE_ENV=production
-LOG_LEVEL=warn
-PORT=3000
-WORKERS=4        # Worker pool size
-JOB_TIMEOUT=600  # 10 minute timeout
-MAX_CONCURRENT=8 # Simultaneous conversions
-```
+This generates an **NSIS installer** (`.exe`) under `release/`, using the custom
+app icon at `src/ui/assets/icon.ico`. The `files` glob bundles `src/**/*` and
+`package.json`.
+
+**Runtime prerequisites for the packaged app:** the installer bundles the app and
+its Node dependencies, but **not** Python/yt-dlp/FFmpeg. The target machine must
+have those available, and `YTDLP_PATH` must resolve there. Because `.env` is
+gitignored and not bundled, a packaged build falls back to the default
+`YTDLP_PATH=yt-dlp` (expecting `yt-dlp` on PATH) unless configured otherwise.
 
 ## Architecture Decisions & Rationale
 

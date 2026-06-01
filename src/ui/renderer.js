@@ -45,7 +45,10 @@ urlInput.addEventListener('input', () => {
   const val = urlInput.value.trim();
   btnClear.style.display = val ? '' : 'none';
 
-  if (val && !isYouTubeUrl(val)) {
+  if (val && isPlaylistOnlyUrl(val)) {
+    urlInput.classList.add('invalid');
+    urlError.textContent = 'Playlist links aren’t supported — paste a single video URL';
+  } else if (val && !isYouTubeUrl(val)) {
     urlInput.classList.add('invalid');
     urlError.textContent = 'Enter a valid YouTube URL';
   } else {
@@ -66,6 +69,12 @@ btnClear.addEventListener('click', () => {
 
 function isYouTubeUrl(url) {
   return /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|playlist\?list=)|youtu\.be\/)/.test(url);
+}
+
+// A playlist-only link (youtube.com/playlist?list=…) has no single video to grab.
+// A watch?v=…&list=… link is fine — the backend's --no-playlist takes just the video.
+function isPlaylistOnlyUrl(url) {
+  return /youtube\.com\/playlist\?list=/.test(url);
 }
 
 // ── Format cards ─────────────────────────────────────────
@@ -104,7 +113,7 @@ document.getElementById('btn-browse').addEventListener('click', async () => {
 // ── Convert button sync ───────────────────────────────────
 function syncBtn() {
   const url   = urlInput.value.trim();
-  const valid = url && isYouTubeUrl(url) && !isConverting;
+  const valid = url && isYouTubeUrl(url) && !isPlaylistOnlyUrl(url) && !isConverting;
   btnConvert.disabled = !valid;
   btnConvert.textContent = isConverting
     ? 'Converting…'

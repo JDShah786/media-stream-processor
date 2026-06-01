@@ -1,10 +1,19 @@
 # YouTube to MP3/MP4 Converter - Project Plan
 
-## 🚀 Current Project Status (May 29, 2026)
+## 🚀 Current Project Status (May 31, 2026)
 
-**Completion:** Phases 1-4 Complete (Backend + Electron Frontend Working)
-**Current Phase:** Phase 5 - Testing, Polish & Theming (In Progress)
-**Timeline:** ~75% complete (end-to-end app functional + fully themed; automated tests & packaging pending)
+**Completion:** Phases 1-5 Complete (Backend + Electron Frontend + Tested & Themed)
+**Current Phase:** Phase 6 - Packaging & Documentation (In Progress)
+**Timeline:** ~90% complete (end-to-end app functional, fully themed, automated
+test suite green; packaging config + README done, installer build pending)
+
+**Phase 5 wrap-up (May 31, 2026):**
+- ✅ Jest test suite: 71 tests across unit (validator, conversionService,
+  fileService) + integration (API endpoints via supertest), all passing
+- ✅ Edge cases hardened: strict URL parsing, length cap, and playlist-only
+  YouTube URLs rejected with a friendly message (server validator + renderer)
+- ✅ README corrected (real project structure, install/prereqs, packaging) and
+  electron-builder NSIS config verified
 
 **What Works Now:**
 - ✅ Real YouTube URL conversion to MP3/MP4
@@ -203,12 +212,12 @@ youtube-converter/
 - [x] Add success/error notifications
 - [x] Style with CSS (custom dark theme)
 
-### Phase 5: Testing & Bug Fixes (Days 11-13) — IN PROGRESS
-- [ ] Unit tests for services
-- [ ] Integration tests for API
-- [ ] Manual testing with various YouTube links
-- [ ] Edge case testing (playlists, long videos, invalid URLs)
-- [ ] Performance testing
+### Phase 5: Testing & Bug Fixes (Days 11-13) ✅ COMPLETE
+- [x] Unit tests for services (validator, conversionService, fileService)
+- [x] Integration tests for API (supertest against the Express app)
+- [x] Manual testing with various YouTube links (verified end-to-end on themed UI)
+- [x] Edge case testing (playlist-only URLs rejected, malformed/over-long URLs)
+- [~] Performance testing (deferred — single-job desktop use; not load-bearing)
 
 ### Phase 6: Deployment & Optimization (Days 14+)
 - [ ] Choose deployment platform (Railway, Render, Heroku free tier)
@@ -291,38 +300,31 @@ youtube-converter/
 
 ### Phase 5: Testing & Bug Fixes (High Priority)
 
-**Unit Tests (`tests/unit/`):**
-- [ ] ConversionService tests
-  - [ ] Test URL validation
-  - [ ] Mock yt-dlp execution
-  - [ ] Mock FFmpeg execution
-  - [ ] Progress callback verification
-  - [ ] Error handling scenarios
+**Unit Tests (`tests/unit/`):** ✅ 71 tests passing
+- [x] ConversionService tests
+  - [x] Filename sanitization (illegal chars, reserved names, length cap)
+  - [x] Collision-safe unique naming
+  - [x] yt-dlp argument construction (MP3 VBR tiers, MP4 resolution + AAC)
+  - [~] Mock yt-dlp/FFmpeg execution (helpers tested directly; spawn not mocked)
   
-- [ ] FileService tests
-  - [ ] Directory creation
-  - [ ] File operations
-  - [ ] Cleanup functions
-  - [ ] Disk space checks
+- [x] FileService tests
+  - [x] File listing (media-only filter, metadata)
+  - [x] File operations (size, delete)
+  - [~] Disk space checks (stub method; not load-bearing)
   
-- [ ] Validator tests
-  - [ ] Valid URL formats
-  - [ ] Invalid URL rejection
-  - [ ] Format validation
-  - [ ] Quality validation
+- [x] Validator tests
+  - [x] Valid URL formats
+  - [x] Invalid/malformed URL rejection + length cap
+  - [x] Playlist-only URL rejection
+  - [x] Format & quality validation
 
-**Integration Tests (`tests/integration/`):**
-- [ ] End-to-end conversion pipeline
-  - [ ] Real YouTube URL → MP3 conversion
-  - [ ] Real YouTube URL → MP4 conversion
-  - [ ] Job creation → Status polling → Completion
-  - [ ] Error scenarios (invalid URL, network failure)
-  
-- [ ] API endpoint tests
-  - [ ] POST /api/convert response codes
-  - [ ] GET /api/status/:jobId response data
-  - [ ] GET /api/jobs list response
-  - [ ] Validation error responses
+**Integration Tests (`tests/integration/`):** ✅ via supertest (extraction stubbed)
+- [x] API endpoint tests
+  - [x] POST /api/convert response codes (202 + 400 validation paths)
+  - [x] GET /api/status/:jobId response data (found vs. 404)
+  - [x] GET /api/jobs + GET /api/files list responses
+  - [x] /health + unknown-route 404
+  - [~] Real end-to-end download (covered by manual testing, not CI — needs network)
 
 **Manual Testing Checklist:**
 - [ ] Test with 5+ different YouTube videos
