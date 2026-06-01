@@ -1,9 +1,65 @@
 require('dotenv').config();
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const { spawn } = require('child_process');
 
 let mainWindow;
 let httpServer;
+
+/**
+ * Default output directory. Prefers D:\ when present (the author's setup), but
+ * falls back to the OS Downloads folder so a packaged build works on any machine.
+ */
+function getDefaultOutputDir() {
+  try {
+    if (fs.existsSync('D:\\')) return 'D:\\';
+  } catch (_) {}
+  return app.getPath('downloads');
+}
+
+/** Resolve true if `cmd` runs and exits 0 for the given version flag. */
+function commandAvailable(cmd, prefixArgs, versionArg) {
+  return new Promise((resolve) => {
+    let proc;
+    try {
+      proc = spawn(cmd, [...prefixArgs, versionArg], { windowsHide: true });
+    } catch (_) {
+      return resolve(false);
+    }
+    proc.on('error', () => resolve(false));
+    proc.on('close', (code) => resolve(code === 0));
+  });
+}
+
+/**
+ * The packaged app bundles neither Python/yt-dlp nor FFmpeg. Probe for them on
+ * launch and warn (non-fatally) so the user gets actionable guidance instead of
+ * a silent conversion failure later.
+ */
+async function checkDependencies() {
+  const missing = [];
+
+  const [ytCmd, ...ytPrefix] = (process.env.YTDLP_PATH || 'yt-dlp').trim().split(/\s+/);
+  if (!(await commandAvailable(ytCmd, ytPrefix, '--version'))) {
+    missing.push('• yt-dlp — the download engine. Install Python 3, then: pip install -U yt-dlp');
+  }
+
+  const ffmpegCmd = process.env.FFMPEG_PATH || 'ffmpeg';
+  if (!(await commandAvailable(ffmpegCmd, [], '-version'))) {
+    missing.push('• FFmpeg — required to convert and merge media. https://ffmpeg.org/download.html');
+  }
+
+  if (missing.length && mainWindow) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: 'Missing dependencies',
+      message: 'Converto needs these tools installed to convert videos:',
+      detail: `${missing.join('\n')}\n\nConversions will fail until these are available on your system.`,
+      buttons: ['OK'],
+    });
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -51,6 +107,7 @@ function startBackend() {
 app.whenReady().then(async () => {
   await startBackend();
   createWindow();
+  checkDependencies(); // non-blocking; warns if yt-dlp/ffmpeg are missing
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -72,7 +129,7 @@ ipcMain.handle('dialog:selectFolder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
     title: 'Select Output Folder',
-    defaultPath: 'D:\\',
+    defaultPath: getDefaultOutputDir(),
   });
   return result.canceled ? null : result.filePaths[0];
 });
@@ -82,5 +139,5 @@ ipcMain.handle('shell:showInFolder', (_event, filePath) => {
 });
 
 ipcMain.handle('app:getDownloadsPath', () => {
-  return 'D:\\';
+  return getDefaultOutputDir();
 });

@@ -2,18 +2,23 @@
 
 ## 🚀 Current Project Status (May 31, 2026)
 
-**Completion:** Phases 1-5 Complete (Backend + Electron Frontend + Tested & Themed)
-**Current Phase:** Phase 6 - Packaging & Documentation (In Progress)
-**Timeline:** ~90% complete (end-to-end app functional, fully themed, automated
-test suite green; packaging config + README done, installer build pending)
+**Completion:** Phases 1-5 Complete; Phase 6 largely done (packaging + docs + CI)
+**Current Phase:** Phase 6 - Packaging & Documentation (wrapping up)
+**Timeline:** ~95% complete (end-to-end app functional, fully themed, 83-test
+suite green, NSIS installer built & verified; only code-signing/auto-update deferred)
 
 **Phase 5 wrap-up (May 31, 2026):**
-- ✅ Jest test suite: 71 tests across unit (validator, conversionService,
-  fileService) + integration (API endpoints via supertest), all passing
+- ✅ Jest suite: 71 tests across unit + integration (now 83 with Phase 6 additions)
 - ✅ Edge cases hardened: strict URL parsing, length cap, and playlist-only
   YouTube URLs rejected with a friendly message (server validator + renderer)
-- ✅ README corrected (real project structure, install/prereqs, packaging) and
-  electron-builder NSIS config verified
+
+**Phase 6 progress (May 31, 2026):**
+- ✅ NSIS installer built & verified (`release/Converto Setup 1.0.0.exe`, ~97 MB);
+  raw art pack excluded from bundle, packaged exe boots
+- ✅ Duration guard: videos over MAX_VIDEO_DURATION rejected via a yt-dlp probe
+- ✅ Pre-flight check warns on missing yt-dlp/FFmpeg; output default now portable
+- ✅ GitHub Actions CI (`npm test` on push/PR); README + CHANGELOG finalized
+- ⏳ Deferred: code signing (needs cert), auto-update (electron-updater)
 
 **What Works Now:**
 - ✅ Real YouTube URL conversion to MP3/MP4
@@ -219,11 +224,15 @@ youtube-converter/
 - [x] Edge case testing (playlist-only URLs rejected, malformed/over-long URLs)
 - [~] Performance testing (deferred — single-job desktop use; not load-bearing)
 
-### Phase 6: Deployment & Optimization (Days 14+)
-- [ ] Choose deployment platform (Railway, Render, Heroku free tier)
-- [ ] Set up CI/CD pipeline (GitHub Actions)
-- [ ] Performance optimization
-- [ ] Documentation & README
+### Phase 6: Packaging & Documentation (Days 14+) — IN PROGRESS
+- [x] Package desktop app (electron-builder NSIS → `Converto Setup 1.0.0.exe`, verified)
+- [x] Duration guard (enforce MAX_VIDEO_DURATION via yt-dlp metadata probe)
+- [x] Pre-flight dependency check (warn if yt-dlp/FFmpeg missing) + portable output default
+- [x] Set up CI pipeline (GitHub Actions running `npm test` on push/PR)
+- [x] Documentation: README (structure/install/packaging/troubleshooting + screenshot), CHANGELOG
+- [~] Deploy platform — N/A (desktop-only distribution)
+- [ ] Code signing (deferred — needs a certificate)
+- [ ] Auto-update (electron-updater) (deferred)
 
 ---
 

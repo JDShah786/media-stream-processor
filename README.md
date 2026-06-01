@@ -2,6 +2,8 @@
 
 A high-performance desktop application for extracting and converting public media streams to support content creation workflows. Built with Electron and Node.js, this tool automates the extraction and conversion of media to streamline video editing pipelines.
 
+![Converto desktop UI](docs/screenshot.png)
+
 ## Architecture Overview
 
 This project demonstrates a professional approach to building media processing tools with robust architecture, efficient resource management, and clean separation of concerns.
@@ -418,11 +420,48 @@ This generates an **NSIS installer** (`.exe`) under `release/`, using the custom
 app icon at `src/ui/assets/icon.ico`. The `files` glob bundles `src/**/*` and
 `package.json`.
 
+This produces `release/Converto Setup <version>.exe` (~97 MB — most of which is
+the bundled Electron runtime). The build excludes the raw Tiny Swords art pack so
+only the repacked sprites ship. On first launch the app probes for `yt-dlp` and
+`FFmpeg` and warns if either is missing.
+
 **Runtime prerequisites for the packaged app:** the installer bundles the app and
 its Node dependencies, but **not** Python/yt-dlp/FFmpeg. The target machine must
 have those available, and `YTDLP_PATH` must resolve there. Because `.env` is
 gitignored and not bundled, a packaged build falls back to the default
 `YTDLP_PATH=yt-dlp` (expecting `yt-dlp` on PATH) unless configured otherwise.
+
+## Troubleshooting
+
+**"Conversions fail / nothing downloads"**
+The app shells out to `yt-dlp` (which in turn uses `FFmpeg`). Confirm both run
+from a terminal: `yt-dlp --version` and `ffmpeg -version`. If you invoke yt-dlp
+through Python, set `YTDLP_PATH=py -m yt_dlp` (Windows) or
+`python3 -m yt_dlp` in `.env`.
+
+**"Video is …, which exceeds the … limit"**
+The clip is longer than `MAX_VIDEO_DURATION` (seconds) in `.env`. Raise the limit,
+or set it to `0` to disable the cap entirely.
+
+**MP4 plays with no sound / won't open in some players**
+The app deliberately prefers AAC (m4a) audio so MP4s play everywhere. This relies
+on FFmpeg being available to yt-dlp for the merge — see the first item.
+
+**Output folder shows nothing / can't write**
+History lists the *selected* output folder. Ensure it exists and is writable; the
+default is `D:\` when present, otherwise your OS Downloads folder.
+
+**Build fails: `Cannot create symbolic link … winCodeSign … .dylib`**
+A Windows-only electron-builder issue: its code-signing toolkit archive contains
+macOS symlinks, and creating symlinks needs elevated privilege. Fixes (any one):
+- Enable **Developer Mode** (Settings → Privacy & security → For developers), or
+- run `npm run build` from an **Administrator** terminal, or
+- pre-extract the toolkit without the macOS files into electron-builder's cache:
+  ```powershell
+  $dst = "$env:LOCALAPPDATA\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0"
+  # download winCodeSign-2.6.0.7z from electron-builder-binaries releases, then:
+  7za x -bd "-o$dst" "-x!darwin" winCodeSign-2.6.0.7z
+  ```
 
 ## Architecture Decisions & Rationale
 

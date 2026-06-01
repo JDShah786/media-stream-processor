@@ -26,6 +26,10 @@ class ConversionService {
 
     logger.info(`[${jobId}] Starting`, { streamUrl, format, quality, outputPath });
 
+    // Reject over-length videos up front (before any download) with a clear
+    // message. Thrown outside the try below so it isn't wrapped/obscured.
+    await this._enforceDurationLimit(streamUrl, jobId);
+
     try {
       const args = this._buildArgs(streamUrl, format, quality, outputTemplate);
       await this._run(args, jobId, onProgress);
@@ -78,6 +82,72 @@ class ConversionService {
 
     args.push('-o', outputTemplate, '--', streamUrl);
     return args;
+  }
+
+  /**
+   * Throw a clear error if the video exceeds MAX_VIDEO_DURATION (seconds).
+   * A value of 0, a negative number, or an unset/invalid env disables the check.
+   * If the duration can't be determined (live streams, network hiccup, missing
+   * yt-dlp), we skip the check and let the real conversion surface any error —
+   * we never block on uncertainty.
+   */
+  async _enforceDurationLimit(streamUrl, jobId) {
+    const limit = parseInt(process.env.MAX_VIDEO_DURATION, 10);
+    if (!Number.isFinite(limit) || limit <= 0) return; // unlimited / not configured
+
+    const duration = await this._getDuration(streamUrl, jobId);
+    if (duration == null) {
+      logger.warn(`[${jobId}] Could not determine duration — skipping length check`);
+      return;
+    }
+
+    if (duration > limit) {
+      throw new Error(
+        `Video is ${this._formatDuration(duration)}, which exceeds the ${this._formatDuration(limit)} limit.`
+      );
+    }
+    logger.debug(`[${jobId}] Duration ${this._formatDuration(duration)} within ${this._formatDuration(limit)} limit`);
+  }
+
+  /**
+   * Ask yt-dlp for just the video's duration in seconds (no download).
+   * Resolves to a finite number, or null if it can't be determined.
+   */
+  _getDuration(streamUrl, jobId) {
+    return new Promise((resolve) => {
+      const args = [
+        ...YTDLP_PREFIX_ARGS,
+        '--no-playlist',
+        '--skip-download',
+        '--print', 'duration',
+        '--', streamUrl,
+      ];
+      const proc = spawn(YTDLP_CMD, args, { windowsHide: true });
+
+      let out = '';
+      proc.stdout.on('data', (d) => { out += d.toString(); });
+      proc.on('close', () => {
+        const n = parseFloat(out.trim().split('\n')[0]);
+        resolve(Number.isFinite(n) ? n : null);
+      });
+      proc.on('error', (err) => {
+        logger.warn(`[${jobId}] duration probe failed: ${err.message}`);
+        resolve(null);
+      });
+    });
+  }
+
+  /** Human-readable duration: 3600 → "1h", 6150 → "1h 42m", 45 → "45s". */
+  _formatDuration(totalSeconds) {
+    const s = Math.round(totalSeconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const parts = [];
+    if (h) parts.push(`${h}h`);
+    if (m) parts.push(`${m}m`);
+    if (!h && sec) parts.push(`${sec}s`);
+    return parts.join(' ') || '0s';
   }
 
   _run(args, jobId, onProgress) {
