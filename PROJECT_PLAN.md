@@ -3,8 +3,8 @@
 ## 🚀 Current Project Status (May 29, 2026)
 
 **Completion:** Phases 1-4 Complete (Backend + Electron Frontend Working)
-**Current Phase:** Phase 5 - Testing & Bug Fixes (In Progress)
-**Timeline:** ~70% complete (end-to-end app functional; automated tests & packaging pending)
+**Current Phase:** Phase 5 - Testing, Polish & Theming (In Progress)
+**Timeline:** ~75% complete (end-to-end app functional + fully themed; automated tests & packaging pending)
 
 **What Works Now:**
 - ✅ Real YouTube URL conversion to MP3/MP4
@@ -17,7 +17,20 @@
 - ✅ Output-folder selection (defaults to D:\) with persisted user choice
 - ✅ Custom output file naming with sanitization & collision handling
 
-**Test Results:** Successfully converted 2x Rick Astley "Never Gonna Give You Up" to MP3 (6.4 MB each, ~4 seconds total)
+**UI / Theming (Phase 5 polish):**
+- ✅ "Converto" branding with a custom pixel-art TV icon (window/taskbar/favicon)
+- ✅ Light-fantasy pixel theme using the **Tiny Swords (Free Pack)** assets:
+  parchment 9-slice panels, skinned red/blue buttons, wooden progress bar,
+  bundled pixel fonts (Pixelify Sans, Press Start 2P), and custom cursors.
+- ✅ Decorative **village diorama** background (sky + grass + multi-row town with
+  castle centerpiece) pre-composed by `scripts/build_assets.py`; designed for
+  fullscreen and crops on smaller windows.
+- ✅ "Poof" sprite effect on conversion complete.
+- Asset pipeline: raw pack is git-ignored; only repacked flat sprites in
+  `src/ui/assets/decor/` are committed. Re-run `py scripts/build_assets.py`
+  to regenerate panels/buttons/cursors/village from the pack.
+
+**Test Results:** Conversion verified end-to-end on the themed UI (e.g. `fantasy-test.mp3` to D:\ with custom naming + populated history).
 
 ---
 

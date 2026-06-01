@@ -3,6 +3,9 @@ node_modules/
 package-lock.json
 yarn.lock
 
+# Raw asset pack — only the extracted flat files in assets/decor/ are tracked
+src/ui/assets/decor/Tiny Swords (Free Pack)/
+
 # Environment variables
 .env
 .env.local

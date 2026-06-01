@@ -10,6 +10,20 @@
 </head>
 <body>
 
+  <!-- Fantasy village scene (behind everything) -->
+  <div class="scene" aria-hidden="true">
+    <img class="cloud cloud-1" src="assets/decor/cloud1.png" alt="" />
+    <img class="cloud cloud-2" src="assets/decor/cloud2.png" alt="" />
+    <img class="cloud cloud-3" src="assets/decor/cloud2.png" alt="" />
+    <img class="cloud cloud-4" src="assets/decor/cloud1.png" alt="" />
+    <img class="cloud cloud-5" src="assets/decor/cloud2.png" alt="" />
+
+    <div class="ground">
+      <!-- pre-composed village diorama (sized for fullscreen; crops when smaller) -->
+      <img class="village-img" src="assets/decor/village.png" alt="" />
+    </div>
+  </div>
+
   <!-- Custom Title Bar -->
   <div class="titlebar">
     <div class="titlebar-drag">
@@ -173,6 +187,9 @@
     </section>
 
   </div>
+
+  <!-- Poof effect (plays on conversion complete) -->
+  <div id="poof" class="poof" aria-hidden="true"></div>
 
   <!-- Toast container -->
   <div id="toast-container" class="toast-container"></div>

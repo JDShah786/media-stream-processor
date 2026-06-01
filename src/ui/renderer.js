@@ -12,6 +12,7 @@ const urlError       = document.getElementById('url-error');
 const btnClear       = document.getElementById('btn-clear');
 const nameInput      = document.getElementById('name-input');
 const nameExt        = document.getElementById('name-ext');
+const poofEl         = document.getElementById('poof');
 const folderDisplay  = document.getElementById('folder-display');
 const progressSec    = document.getElementById('progress-section');
 const progressFill   = document.getElementById('progress-fill');
@@ -177,6 +178,7 @@ function pollJob(jobId) {
 
 function onDone(job) {
   setProgress(100, 'Complete!');
+  playPoof();
   toast('Converted successfully!', 'success');
   // Small delay so the file is fully flushed before we read the directory
   setTimeout(loadHistory, 800);
@@ -190,6 +192,14 @@ function onDone(job) {
     urlInput.classList.remove('invalid');
     syncBtn();
   }, 1800);
+}
+
+// ── Poof effect ───────────────────────────────────────────
+function playPoof() {
+  poofEl.classList.remove('play');
+  void poofEl.offsetWidth; // force reflow so the animation restarts
+  poofEl.classList.add('play');
+  setTimeout(() => poofEl.classList.remove('play'), 760);
 }
 
 // ── Helpers ──────────────────────────────────────────────
