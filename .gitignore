@@ -38,3 +38,6 @@ temp/
 
 # Electron
 release/
+
+# Internal planning notes (kept local, not published)
+PROJECT_PLAN.md

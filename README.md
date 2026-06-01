@@ -174,8 +174,8 @@ media-stream-converter/
 ├── .env                             # Local config (gitignored)
 ├── .env.example                     # Config template
 ├── jest.config.js                   # Test runner config
-├── package.json                     # Dependencies + electron-builder config
-└── PROJECT_PLAN.md                  # Detailed specs
+├── CHANGELOG.md                     # Version history
+└── package.json                     # Dependencies + electron-builder config
 ```
 
 ## Use Case & Professional Context
