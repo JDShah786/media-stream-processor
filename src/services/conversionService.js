@@ -63,6 +63,13 @@ class ConversionService {
       '--newline',      // one progress line per stdout line (easier to parse)
     ];
 
+    // When bootstrap placed ffmpeg in userData/bin, tell yt-dlp where to find
+    // it rather than relying on the system PATH.
+    const ffPath = process.env.FFMPEG_PATH || '';
+    if (path.isAbsolute(ffPath)) {
+      args.push('--ffmpeg-location', path.dirname(ffPath));
+    }
+
     if (format === 'mp3') {
       // VBR quality: 0 = best (~320kbps), 5 = medium (~128kbps)
       const vbr = { low: '5', medium: '2', high: '0' }[quality] ?? '2';

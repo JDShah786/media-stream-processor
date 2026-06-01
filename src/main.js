@@ -1,64 +1,16 @@
 require('dotenv').config();
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
-const fs = require('fs');
-const { spawn } = require('child_process');
+const fs   = require('fs');
 
 let mainWindow;
 let httpServer;
 
-/**
- * Default output directory. Prefers D:\ when present (the author's setup), but
- * falls back to the OS Downloads folder so a packaged build works on any machine.
- */
 function getDefaultOutputDir() {
   try {
     if (fs.existsSync('D:\\')) return 'D:\\';
   } catch (_) {}
   return app.getPath('downloads');
-}
-
-/** Resolve true if `cmd` runs and exits 0 for the given version flag. */
-function commandAvailable(cmd, prefixArgs, versionArg) {
-  return new Promise((resolve) => {
-    let proc;
-    try {
-      proc = spawn(cmd, [...prefixArgs, versionArg], { windowsHide: true });
-    } catch (_) {
-      return resolve(false);
-    }
-    proc.on('error', () => resolve(false));
-    proc.on('close', (code) => resolve(code === 0));
-  });
-}
-
-/**
- * The packaged app bundles neither Python/yt-dlp nor FFmpeg. Probe for them on
- * launch and warn (non-fatally) so the user gets actionable guidance instead of
- * a silent conversion failure later.
- */
-async function checkDependencies() {
-  const missing = [];
-
-  const [ytCmd, ...ytPrefix] = (process.env.YTDLP_PATH || 'yt-dlp').trim().split(/\s+/);
-  if (!(await commandAvailable(ytCmd, ytPrefix, '--version'))) {
-    missing.push('• yt-dlp — the download engine. Install Python 3, then: pip install -U yt-dlp');
-  }
-
-  const ffmpegCmd = process.env.FFMPEG_PATH || 'ffmpeg';
-  if (!(await commandAvailable(ffmpegCmd, [], '-version'))) {
-    missing.push('• FFmpeg — required to convert and merge media. https://ffmpeg.org/download.html');
-  }
-
-  if (missing.length && mainWindow) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'warning',
-      title: 'Missing dependencies',
-      message: 'Converto needs these tools installed to convert videos:',
-      detail: `${missing.join('\n')}\n\nConversions will fail until these are available on your system.`,
-      buttons: ['OK'],
-    });
-  }
 }
 
 function createWindow() {
@@ -86,8 +38,8 @@ function createWindow() {
 
 function startBackend() {
   const expressApp = require('./app');
-  const logger = require('./services/loggerService');
-  const PORT = process.env.PORT || 3000;
+  const logger     = require('./services/loggerService');
+  const PORT       = process.env.PORT || 3000;
 
   return new Promise((resolve) => {
     httpServer = expressApp.listen(PORT, () => {
@@ -104,10 +56,134 @@ function startBackend() {
   });
 }
 
+// ── Bootstrap: ensure yt-dlp + FFmpeg are available ──────────────────────
+
+/**
+ * Show a frameless setup window and run the bootstrap downloads.
+ * Resolves once setup is complete (or the user chose to skip).
+ * On unrecoverable failure the window stays open; the user can retry or skip.
+ */
+async function runSetupWindow(bootstrap) {
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      width: 500,
+      height: 330,
+      resizable: false,
+      frame: false,
+      backgroundColor: '#84cdf7',
+      icon: path.join(__dirname, 'ui', 'assets', 'icon.ico'),
+      webPreferences: {
+        preload: path.join(__dirname, 'preload-setup.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    win.loadFile(path.join(__dirname, 'ui', 'setup.html'));
+
+    // Let the user skip (run without managed deps — falls back to PATH)
+    ipcMain.once('setup:skip', () => {
+      win.close();
+      resolve();
+    });
+
+    const runDownloads = async () => {
+      try {
+        fs.mkdirSync(bootstrap.BIN_DIR, { recursive: true });
+
+        const send = (data) => {
+          if (!win.isDestroyed()) win.webContents.send('setup:update', data);
+        };
+
+        // ── yt-dlp ──────────────────────────────────────────────────────
+        if (!fs.existsSync(bootstrap.YTDLP_EXE)) {
+          await bootstrap.downloadFile(bootstrap.YTDLP_URL, bootstrap.YTDLP_EXE, (pct) => {
+            send({ dep: 'ytdlp', phase: 'downloading', pct });
+          });
+        }
+        send({ dep: 'ytdlp', phase: 'done', pct: 100 });
+
+        // ── FFmpeg ───────────────────────────────────────────────────────
+        if (!fs.existsSync(bootstrap.FFMPEG_EXE)) {
+          send({ dep: 'ffmpeg', phase: 'resolving', pct: 0 });
+          const zipUrl = await bootstrap.getFFmpegZipUrl();
+
+          const tmpZip = path.join(bootstrap.BIN_DIR, '_ffmpeg.zip');
+          await bootstrap.downloadFile(zipUrl, tmpZip, (pct) => {
+            send({ dep: 'ffmpeg', phase: 'downloading', pct });
+          });
+
+          send({ dep: 'ffmpeg', phase: 'extracting', pct: 98 });
+          bootstrap.extractFfmpegFromZip(tmpZip);
+          fs.unlinkSync(tmpZip);
+        }
+        send({ dep: 'ffmpeg', phase: 'done', pct: 100 });
+
+        bootstrap.applyPaths();
+
+        if (!win.isDestroyed()) win.webContents.send('setup:done');
+        // Brief pause so the user can see the "All set!" message
+        await new Promise(r => setTimeout(r, 1200));
+        if (!win.isDestroyed()) win.close();
+        resolve();
+
+      } catch (err) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('setup:error', { message: err.message });
+        }
+        // Wait for retry or skip
+        ipcMain.once('setup:retry', () => runDownloads());
+      }
+    };
+
+    win.webContents.once('did-finish-load', () => runDownloads());
+  });
+}
+
+async function ensureDependencies() {
+  const bootstrap = require('./bootstrap');
+
+  if (bootstrap.needsSetup()) {
+    await runSetupWindow(bootstrap);
+  } else {
+    // Managed binaries already present (or user has explicit .env paths) — just wire the env vars.
+    bootstrap.applyPaths();
+  }
+}
+
+// ── Auto-update ───────────────────────────────────────────────────────────
+
+function scheduleUpdateCheck() {
+  if (!app.isPackaged) return; // dev mode — never check
+
+  const { autoUpdater } = require('electron-updater');
+
+  autoUpdater.on('update-downloaded', () => {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update ready',
+      message: 'A new version of Converto has been downloaded.',
+      detail: 'Restart the app to apply the update.',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+  });
+
+  // Check once on launch; silence network / no-release errors
+  autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+}
+
+// ── App lifecycle ─────────────────────────────────────────────────────────
+
 app.whenReady().then(async () => {
+  // Bootstrap must run before startBackend() because conversionService.js
+  // parses YTDLP_PATH once at require()-time; env vars must be set first.
+  await ensureDependencies();
   await startBackend();
   createWindow();
-  checkDependencies(); // non-blocking; warns if yt-dlp/ffmpeg are missing
+  scheduleUpdateCheck();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -118,6 +194,8 @@ app.on('window-all-closed', () => {
   if (httpServer) httpServer.close();
   if (process.platform !== 'darwin') app.quit();
 });
+
+// ── IPC handlers ─────────────────────────────────────────────────────────
 
 ipcMain.handle('window:minimize', () => mainWindow.minimize());
 ipcMain.handle('window:maximize', () => {

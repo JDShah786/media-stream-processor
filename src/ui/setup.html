@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <title>Converto — First-time Setup</title>
+  <style>
+    @font-face {
+      font-family: 'Pixelify Sans';
+      src: url('fonts/PixelifySans.ttf') format('truetype');
+      font-weight: 400 700;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Press Start 2P';
+      src: url('fonts/PressStart2P.ttf') format('truetype');
+      font-weight: 400;
+      font-display: swap;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sky-top:  #84cdf7;
+      --sky-bot:  #cdeeff;
+      --ink:      #3b2c1e;
+      --ink-dim:  #6f5740;
+      --wood:     #5a3f29;
+      --wood-dk:  #3d2a1a;
+      --cream:    #fff6e0;
+      --parch-ln: #c9a36b;
+      --lime:     #4e9e2e;
+      --red:      #d6402f;
+      --gold:     #c98a14;
+      --pix:      'Press Start 2P', monospace;
+      --body:     'Pixelify Sans', 'Trebuchet MS', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bot) 100%);
+      font-family: var(--body);
+      font-size: 15px;
+      color: var(--ink);
+      -webkit-font-smoothing: none;
+      user-select: none;
+    }
+
+    /* ── Drag region (frameless window) ── */
+    .titlebar {
+      -webkit-app-region: drag;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px 6px;
+    }
+    .titlebar img { width: 22px; height: 22px; image-rendering: pixelated; }
+    .titlebar span {
+      font-family: var(--pix);
+      font-size: 9px;
+      color: var(--wood-dk);
+      letter-spacing: 1px;
+    }
+
+    /* ── Parchment panel ── */
+    .panel {
+      margin: 0 16px 14px;
+      background: var(--cream);
+      border: 3px solid var(--parch-ln);
+      border-radius: 4px;
+      padding: 18px 20px;
+      image-rendering: pixelated;
+      box-shadow: 4px 4px 0 rgba(0,0,0,0.18);
+    }
+
+    .setup-title {
+      font-family: var(--pix);
+      font-size: 8px;
+      color: var(--wood-dk);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .setup-subtitle {
+      font-size: 13px;
+      color: var(--ink-dim);
+      margin-bottom: 18px;
+      line-height: 1.4;
+    }
+
+    /* ── Dependency row ── */
+    .dep {
+      margin-bottom: 16px;
+    }
+    .dep:last-child { margin-bottom: 0; }
+
+    .dep-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .dep-name {
+      font-family: var(--pix);
+      font-size: 7px;
+      color: var(--wood);
+      letter-spacing: 0.5px;
+    }
+    .dep-status {
+      font-size: 12px;
+      color: var(--ink-dim);
+    }
+    .dep-status.done  { color: var(--lime); }
+    .dep-status.error { color: var(--red);  }
+
+    /* Progress track */
+    .track {
+      height: 14px;
+      background: var(--parch-ln);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 2px solid var(--wood);
+      image-rendering: pixelated;
+    }
+    .fill {
+      height: 100%;
+      width: 0%;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--lime)      0px,
+        var(--lime)      10px,
+        #3a7a20          10px,
+        #3a7a20          12px
+      );
+      background-size: 12px 100%;
+      transition: width 0.25s ease;
+      image-rendering: pixelated;
+    }
+    .fill.error {
+      background: repeating-linear-gradient(
+        90deg,
+        var(--red)  0px,
+        var(--red)  10px,
+        #9e2a1e     10px,
+        #9e2a1e     12px
+      );
+    }
+
+    /* ── Action row ── */
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+      justify-content: flex-end;
+    }
+    .btn {
+      font-family: var(--pix);
+      font-size: 7px;
+      letter-spacing: 0.5px;
+      padding: 8px 14px;
+      border: 2px solid var(--wood-dk);
+      border-radius: 3px;
+      cursor: pointer;
+      background: var(--cream);
+      color: var(--wood-dk);
+      text-transform: uppercase;
+      transition: background 0.1s;
+    }
+    .btn:hover  { background: var(--parch-ln); }
+    .btn:active { background: var(--wood); color: var(--cream); }
+    .btn.primary {
+      background: var(--lime);
+      color: #fff;
+      border-color: #2d6015;
+    }
+    .btn.primary:hover  { background: #3d8020; }
+    .btn.primary:active { background: #2d6015; }
+
+    .actions[hidden] { display: none !important; }
+    [hidden] { display: none !important; }
+
+    /* ── Size note ── */
+    .size-note {
+      font-size: 11px;
+      color: var(--ink-dim);
+      margin-top: 8px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="titlebar">
+    <img src="assets/icon.png" alt="" />
+    <span>Converto</span>
+  </div>
+
+  <div class="panel">
+    <div class="setup-title">First-time setup</div>
+    <p class="setup-subtitle">
+      Downloading the tools Converto needs to convert videos.<br>
+      This only happens once (~75 MB total).
+    </p>
+
+    <!-- yt-dlp row -->
+    <div class="dep" id="dep-ytdlp">
+      <div class="dep-header">
+        <span class="dep-name">yt-dlp (download engine)</span>
+        <span class="dep-status" id="status-ytdlp">Waiting…</span>
+      </div>
+      <div class="track"><div class="fill" id="fill-ytdlp"></div></div>
+    </div>
+
+    <!-- FFmpeg row -->
+    <div class="dep" id="dep-ffmpeg">
+      <div class="dep-header">
+        <span class="dep-name">FFmpeg (media converter)</span>
+        <span class="dep-status" id="status-ffmpeg">Waiting…</span>
+      </div>
+      <div class="track"><div class="fill" id="fill-ffmpeg"></div></div>
+    </div>
+
+    <p class="size-note" id="size-note">Requires an internet connection.</p>
+  </div>
+
+  <!-- Error actions (hidden until an error occurs) -->
+  <div class="panel actions" id="actions-error" hidden>
+    <button class="btn" id="btn-skip">Skip for now</button>
+    <button class="btn primary" id="btn-retry">Retry</button>
+  </div>
+
+  <script src="setup.js"></script>
+</body>
+</html>

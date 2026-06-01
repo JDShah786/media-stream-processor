@@ -1,0 +1,45 @@
+name: Build & Release
+
+# Triggers when a version tag (e.g. v1.0.1) is pushed.
+# Builds the Windows NSIS installer and publishes it as a GitHub Release,
+# along with the latest.yml feed that electron-updater uses for auto-update.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    permissions:
+      contents: write   # required to create the release and upload assets
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build NSIS installer & publish to GitHub Releases
+        env:
+          # GITHUB_TOKEN is provided automatically by Actions; it has the
+          # `contents: write` permission granted above.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build
+
+      - name: Upload installer as workflow artifact (for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Converto-installer
+          path: release/*.exe
+          if-no-files-found: error
